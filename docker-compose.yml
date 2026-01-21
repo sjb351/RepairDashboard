@@ -1,0 +1,41 @@
+
+services:
+    user-input-dc:
+        extends:
+            file: user_input_dc/app.yml
+            service: app
+        networks:
+            internal:
+                aliases:
+                    - user-input-dc.docker.local
+        depends_on:
+            - backend_db
+        restart: unless-stopped
+    backend_db:
+        extends:
+            file: backend_db/app.yml
+            service: app
+        networks:
+            internal:
+                aliases:
+                    - backend_db.docker.local
+        env_file:
+            - django_secret_key
+        restart: unless-stopped
+    ngrok:
+        image: ngrok/ngrok:latest
+        command: http user-input-dc:80
+        environment:
+            NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+        ports:
+            - "4040:4040"
+        depends_on:
+            - user-input-dc
+        networks:
+            internal:
+                aliases:
+                    - ngrok.docker.local
+
+networks:
+    internal:
+        name: shoestring-internal
