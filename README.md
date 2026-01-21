@@ -1,7 +1,7 @@
 ## Running the file
 This is the same as other shoestring apps.
 
-Run 
+To run, you first have to make a .env file in the folder this opens in and add in the authenticaiton code I will send you
 
 ''' 
 docker compose build
