@@ -284,7 +284,6 @@ export function ViewRepairDetails({ config }) {
                   <th>Outcome</th>
                   <th>Fault diagnosed</th>
                   <th>Fault features</th>
-                  <th>Photos</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,7 +293,6 @@ export function ViewRepairDetails({ config }) {
                     <td>{result.type ?? "-"}</td>
                     <td>{formatFaultDiagnosed(result.fault_diagnosed)}</td>
                     <td>{formatFeatureNames(result.fault_features)}</td>
-                    <td>{renderPhotoStrip(result.photo_id)}</td>
                   </tr>
                 ))}
               </tbody>

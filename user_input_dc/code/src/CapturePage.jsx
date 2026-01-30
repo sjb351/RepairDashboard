@@ -22,6 +22,7 @@ const RESULT_TYPE = {
 
 export function CapturePage({ config, product_list }) {
   const inputRef = useRef(null);
+  const currentDataRef = useRef(null)
 
   let params = useParams();
   const product_id = Number(params.product_id)
@@ -46,7 +47,9 @@ export function CapturePage({ config, product_list }) {
   let [currentData, setCurrentData] = useState(null) //({product_id: product_id})
   let [textName, setTextName] = useState("")
   const resetCurrentData = () => {
-    setCurrentData({ product_id: product_id })
+    const nextData = { product_id: product_id }
+    currentDataRef.current = nextData
+    setCurrentData(nextData)
   }
 
   const normalizeRepairResultPayload = (data, resultType) => {
@@ -82,6 +85,10 @@ export function CapturePage({ config, product_list }) {
   useEffect(() => {
     resetCurrentData()
   }, [product_id])
+
+  useEffect(() => {
+    currentDataRef.current = currentData
+  }, [currentData])
 
   const handleModalClose = (setter) => () => {
     resetCurrentData()
@@ -124,6 +131,7 @@ export function CapturePage({ config, product_list }) {
   const handleButtonClick = (value) => {
     // starts the process of collecting form data from the user based on response
     // show first page of modal
+    resetCurrentData()
     setShowFeatureModal(true)
     setModalType(value)
     if (value === STATUS.not_repair) {
@@ -148,9 +156,10 @@ export function CapturePage({ config, product_list }) {
 
   const handleSubmitSelection = async (returnInfo) => {
     // add new data
-    let newData = {... currentData, ...returnInfo } 
+    let newData = { ...(currentDataRef.current ?? {}), ...returnInfo }
     console.log("Returned data:", returnInfo)
     console.log("New data:", newData)
+    currentDataRef.current = newData
     setCurrentData(newData)
 
     if (showExtraModal) {
