@@ -86,7 +86,7 @@ class RepairResultViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows repair results to be viewed or edited.
     """
-    queryset = RepairResult.objects.select_related("product_id", "fault_diagnosed").all().order_by("-date")
+    queryset = RepairResult.objects.select_related("product_id", "fault_diagnosed").prefetch_related("fault_features").all().order_by("-date")
     serializer_class = RepairResultSerializer
     permission_classes = [permissions.AllowAny]
 

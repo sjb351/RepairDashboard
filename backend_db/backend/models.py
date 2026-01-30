@@ -70,6 +70,7 @@ class RepairResult(models.Model):
     time_to_repair = models.DurationField(null=True, blank=True)
     time_to_diagnose = models.DurationField(null=True, blank=True)
     fault_diagnosed = models.ForeignKey(Fault, on_delete=models.CASCADE, related_name="repair_results", blank=True,null=True)
+    fault_features = models.ManyToManyField(FeatureOfFault, blank=True, related_name="repair_results")
     photo_id = models.ManyToManyField(Photo,  blank=True,null=True)
 
     def __str__(self):

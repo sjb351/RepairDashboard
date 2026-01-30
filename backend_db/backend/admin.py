@@ -61,7 +61,7 @@ class RepairResultAdmin(admin.ModelAdmin):
     )
     list_filter = ("type", "product_id", "fault_diagnosed")
     search_fields = ("text", "notes", "product_id__name", "product_id__barcode_serial", "fault_diagnosed")
-    filter_horizontal = ("repair_action", "reason_not_repaired", "photo_id")
+    filter_horizontal = ("repair_action", "reason_not_repaired", "fault_features", "photo_id")
 
 
 class FaultFeaturesMultiSelectFilter(SimpleListFilter):

@@ -6,7 +6,7 @@ services:
       python manage.py migrate &&
       daphne -b 0.0.0.0 -p 7000 backend_db.asgi:application"
     volumes:
-      - ./sb.sqlite3:/app/sb.sqlite3
+      - ./db.sqlite3:/app/db.sqlite3
       - ./media/:/app/media
       - /etc/localtime:/etc/localtime:ro
     ports:

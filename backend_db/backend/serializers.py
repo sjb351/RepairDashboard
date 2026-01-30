@@ -137,6 +137,11 @@ class RepairResultSerializer(serializers.ModelSerializer):
         many=True,
         required=False,
     )
+    fault_features = serializers.PrimaryKeyRelatedField(
+        queryset=FeatureOfFault.objects.all(),
+        many=True,
+        required=False,
+    )
 
     # Optional: include read-friendly nested forms too
     repair_action_details = RepairActionSerializer(source="repair_action", many=True, read_only=True)
@@ -166,6 +171,7 @@ class RepairResultSerializer(serializers.ModelSerializer):
             "reason_not_repaired",
             "reason_not_repaired_details",
             "fault_diagnosed",
+            "fault_features",
             "photo_id",
             "notes",
             "time_to_repair",
