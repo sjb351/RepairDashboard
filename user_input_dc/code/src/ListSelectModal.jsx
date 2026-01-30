@@ -21,6 +21,7 @@ export function ListSelectModal({ show, title, topic, handleClose, fullscreen, a
   const [cameraReady, setCameraReady] = useState(false)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+  const uploadInputRef = useRef(null)
   const [photoIdAdded, setPhotoIdAdded] = useState([])
 
   useEffect(() => {
@@ -196,6 +197,70 @@ const loadData = async () => {
     startCamera()
   }
 
+  const handleUploadClick = (item) => {
+    if (!photoOption) {
+      return
+    }
+    setPhotoError("")
+    setPhotoTarget(item)
+    uploadInputRef.current?.click()
+  }
+
+  const handleUploadSelected = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) {
+      return
+    }
+    if (!photoTarget) {
+      setPhotoError("No item selected for photo upload.")
+      return
+    }
+    const endpoint = photoEndpoint ?? ""
+    if (!endpoint) {
+      setPhotoError("No photo endpoint configured.")
+      return
+    }
+    setPhotoSubmitting(true)
+    setPhotoError("")
+    try {
+      const imageDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(new Error("Unable to read photo data."))
+        reader.readAsDataURL(file)
+      })
+
+      let payload = {
+        title: buildPhotoTitle(photoTarget),
+        feature_id: selectedIds[0] ?? null,
+        image: imageDataUrl,
+      }
+      if (current_data?.product_id) {
+        payload = { ...payload, product_id: current_data.product_id }
+      } else if (photoTarget?.product_id) {
+        payload = { ...payload, product_id: photoTarget.product_id }
+      }
+      if (photoRelationKey && photoTarget?.id) {
+        payload = { ...payload, [photoRelationKey]: photoTarget.id }
+      }
+      const response = await APIBackend.api_post(endpoint, payload)
+      if (response.status >= 200 && response.status < 300) {
+        const newPhotoId = response.payload?.id
+        if (newPhotoId != null) {
+          setPhotoIdAdded(prev => [...prev, newPhotoId])
+        }
+        setLoaded(false)
+      } else {
+        setPhotoError(`Unable to upload photo (status ${response.status})`)
+      }
+    } catch (err) {
+      setPhotoError(err?.message ?? "Unable to upload photo")
+    } finally {
+      setPhotoSubmitting(false)
+    }
+  }
+
   const handleCapturePhoto = async () => {
     if (!photoTarget || !videoRef.current || !canvasRef.current) {
       return
@@ -286,14 +351,26 @@ const loadData = async () => {
                 {item.name}
               </Button>
               {photoOption ? (
-                <Button
-                  variant="light"
-                  onClick={() => handlePhotoClick(item)}
-                  disabled={photoSubmitting}
-                  size="sm"
-                >
-                  {photoSubmitting && photoTarget?.id === item.id ? "Uploading..." : "Add photo"}
-                </Button>
+                <div className="d-flex gap-2">
+                  <Button
+                    variant="light"
+                    onClick={() => handlePhotoClick(item)}
+                    disabled={photoSubmitting}
+                    size="sm"
+                    className="flex-fill"
+                  >
+                    {photoSubmitting && photoTarget?.id === item.id ? "Uploading..." : "Take photo"}
+                  </Button>
+                  <Button
+                    variant="light"
+                    onClick={() => handleUploadClick(item)}
+                    disabled={photoSubmitting}
+                    size="sm"
+                    className="flex-fill"
+                  >
+                    Upload photo
+                  </Button>
+                </div>
               ) : null}
             </div>
           </Col>
@@ -323,6 +400,13 @@ const loadData = async () => {
             </div>
           ) : null}
           {photoError ? <div className="text-danger mt-2">{photoError}</div> : null}
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleUploadSelected}
+          />
         </>
       ) : null}
     

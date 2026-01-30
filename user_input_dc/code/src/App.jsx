@@ -1,6 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { BrowserRouter, Routes, Route, NavLink, Outlet } from 'react-router-dom'
-import { Container, Navbar, Nav, Row, Col, ToastContainer, Toast, Card, Spinner, ListGroup, Button } from 'react-bootstrap';
+import { Container, Navbar, Nav, Row, Col, ToastContainer, Toast, Card, Spinner, ListGroup, Button, Form, InputGroup, Alert } from 'react-bootstrap';
 import { CapturePage } from './CapturePage';
 import { DataView } from './DataView';
 import { ViewRepairDetails } from './ViewRepairDetails';
@@ -58,7 +58,7 @@ function Routing(props) {
   return (
     <Routes>
       <Route path='/' element={<Base product_list={product_list} setProductList={setProductList} {...props} />}>
-        <Route path='/products' element={<ProductList product_list={product_list} config={props.config} />} />
+        <Route path='/products' element={<ProductList product_list={product_list} setProductList={setProductList} config={props.config} />} />
         <Route path='/single/:product_id' element={<CapturePage product_list={product_list} {...props} />} />
         <Route index element={<ProductList product_list={product_list} setProductList={setProductList} config={props.config} />}></Route>
         <Route path='/viewdata' element={<DataView product_list={product_list} config={props.config} />} />
@@ -152,11 +152,55 @@ function BSNavLink({ children, className, ...props }) {
   return <NavLink className={({ isActive }) => (isActive ? ("nav-link active " + className) : ("nav-link " + className))} {...props}>{children}</NavLink>
 }
 
-function ProductList({ product_list, config }) {
+function ProductList({ product_list, setProductList, config }) {
+  const [newProductName, setNewProductName] = useState("")
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState(null)
+  const apiBase = getApiBase(config)
+
+  const onCreateProduct = async (event) => {
+    event.preventDefault()
+    const trimmedName = newProductName.trim()
+    if (!trimmedName || creating) {
+      return
+    }
+    setCreating(true)
+    setCreateError(null)
+    let response = await APIBackend.api_post(apiBase + '/products/', { name: trimmedName })
+    if (response.status === 201 || response.status === 200) {
+      const created = response.payload
+      setProductList(prev => {
+        const updated = [...prev, created]
+        updated.sort((a, b) => (a.id || 0) - (b.id || 0))
+        return updated
+      })
+      setNewProductName("")
+    } else {
+      setCreateError("Unable to add product - please try again")
+      console.error("Unable to add product", response)
+    }
+    setCreating(false)
+  }
+
   return <Container fluid="md">
     <Card className='mt-2'>
       <Card.Header className='text-center'><h1>{config?.location_page?.title}</h1></Card.Header>
       <Card.Body>
+        <Form onSubmit={onCreateProduct} className="mb-3">
+          <InputGroup>
+            <Form.Control
+              type="text"
+              placeholder="New product name"
+              value={newProductName}
+              onChange={(event) => setNewProductName(event.target.value)}
+              aria-label="New product name"
+            />
+            <Button type="submit" disabled={creating || newProductName.trim() === ""}>
+              {creating ? "Adding..." : "Add Product"}
+            </Button>
+          </InputGroup>
+          {createError ? <Alert variant="danger" className="mt-2 mb-0">{createError}</Alert> : null}
+        </Form>
         <ListGroup>
           {product_list.map(item => (
             <ListGroup.Item key={item.id} className="d-flex justify-content-between align-items-baseline">
