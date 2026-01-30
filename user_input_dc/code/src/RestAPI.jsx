@@ -21,6 +21,31 @@ function mergeSettings(A, B) {
 
 //todo: could move csrf token to a context
 
+
+function normalizeUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return url;
+  }
+  if (typeof window === 'undefined' || !window.location) {
+    return url;
+  }
+  if (window.location.protocol !== 'https:') {
+    return url;
+  }
+  if (!url.startsWith('http://')) {
+    return url;
+  }
+  try {
+    const target = new URL(url);
+    if (target.host === window.location.host) {
+      return url.replace(/^http:/, 'https:');
+    }
+  } catch {
+    return url;
+  }
+  return url;
+}
+
 async function api_post(url, data) {
   return await api_call(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
 }
@@ -52,7 +77,7 @@ async function api_call(url, settings = {}) {
       'X-CSRFToken': csrf_token,
     },
   }
-  var response = await fetch(url, mergeSettings(defaults, settings))
+  var response = await fetch(normalizeUrl(url), mergeSettings(defaults, settings))
   const contentType = response.headers.get("content-type");
   var output = ''
   if (contentType && contentType.indexOf("application/json") !== -1) {
