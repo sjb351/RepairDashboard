@@ -18,7 +18,7 @@ function App() {
   useEffect(() => {
     let do_load = async () => {
       setPending(true)
-      let response = await APIBackend.api_get(window.location.origin + '/config/config.json');
+      let response = await APIBackend.api_get('/config/config.json');
       if (response.status === 200) {
         const raw_conf = response.payload;
         console.log("config", raw_conf)
