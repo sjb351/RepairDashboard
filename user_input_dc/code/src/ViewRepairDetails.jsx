@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Container, Card, Spinner, Table, Badge, Form } from "react-bootstrap"
+import { Container, Card, Spinner, Table, Badge, Form, Row, Col } from "react-bootstrap"
 import { useParams } from "react-router-dom"
 import APIBackend from "./RestAPI"
 import { getApiBase } from "./apiBase"
@@ -10,6 +10,7 @@ export function ViewRepairDetails({ config }) {
   const [error, setError] = useState(null)
   const [fault, setFault] = useState(null)
   const [features, setFeatures] = useState([])
+  const [photos, setPhotos] = useState([])
   const [repairResults, setRepairResults] = useState([])
   const [outcomeFilter, setOutcomeFilter] = useState("all")
 
@@ -22,15 +23,30 @@ export function ViewRepairDetails({ config }) {
     const doLoad = async () => {
       setPending(true)
       try {
-        const [faultRes, featureRes, resultRes] = await Promise.all([
+        const [faultRes, featureRes, photoRes, resultRes] = await Promise.all([
           APIBackend.api_get(apiBase + `/faults/${faultId}/`),
           APIBackend.api_get(apiBase + "/features/"),
+          APIBackend.api_get(apiBase + "/photos/"),
           APIBackend.api_get(apiBase + "/repair-results/"),
         ])
-        if (faultRes.status === 200 && featureRes.status === 200 && resultRes.status === 200) {
-          setFault(faultRes.payload)
-          setFeatures(featureRes.payload)
-          setRepairResults(resultRes.payload)
+        if (
+          faultRes.status === 200 &&
+          featureRes.status === 200 &&
+          photoRes.status === 200 &&
+          resultRes.status === 200
+        ) {
+          if (Array.isArray(faultRes.payload)) {
+            setFault(faultRes.payload[0] ?? null)
+          } else {
+            setFault(faultRes.payload)
+          }
+          setFeatures(Array.isArray(featureRes.payload) ? featureRes.payload : [])
+          if (Array.isArray(resultRes.payload)) {
+            setRepairResults(resultRes.payload)
+          } else {
+            setRepairResults([])
+          }
+          setPhotos(Array.isArray(photoRes.payload) ? photoRes.payload : [])
           setLoaded(true)
         } else {
           setError("Unable to load fault details.")
@@ -52,6 +68,27 @@ export function ViewRepairDetails({ config }) {
     return map
   }, [features])
 
+  const photosById = useMemo(() => {
+    const map = new Map()
+    photos.forEach((photo) => map.set(photo.id, photo))
+    return map
+  }, [photos])
+
+  const photosByFeatureId = useMemo(() => {
+    const map = new Map()
+    photos.forEach((photo) => {
+      const featureId = photo.feature_id
+      if (!featureId) {
+        return
+      }
+      if (!map.has(featureId)) {
+        map.set(featureId, [])
+      }
+      map.get(featureId).push(photo)
+    })
+    return map
+  }, [photos])
+
   const resultsForFault = useMemo(() => {
     if (!faultId) {
       return []
@@ -66,11 +103,101 @@ export function ViewRepairDetails({ config }) {
     return resultsForFault.filter((result) => result.type === outcomeFilter)
   }, [resultsForFault, outcomeFilter])
 
-  const formatActions = (items) => {
-    if (!items || items.length === 0) {
+  const associatedFeatureIds = useMemo(() => fault?.features ?? [], [fault])
+
+  const associatedFeatures = useMemo(() => {
+    return associatedFeatureIds
+      .map((featureId) => featuresById.get(featureId))
+      .filter(Boolean)
+  }, [associatedFeatureIds, featuresById])
+
+  const photosForFault = useMemo(() => {
+    const ids = new Set()
+    resultsForFault.forEach((result) => {
+      const photoIds = result?.photo_id ?? []
+      if (Array.isArray(photoIds)) {
+        photoIds.forEach((id) => ids.add(id))
+      } else if (photoIds != null) {
+        ids.add(photoIds)
+      }
+    })
+    return Array.from(ids)
+      .map((id) => photosById.get(id))
+      .filter(Boolean)
+  }, [resultsForFault, photosById])
+
+  const normalizedImageUrl = (src) => {
+    if (!src) {
+      return null
+    }
+    if (src.startsWith("data:")) {
+      return src
+    }
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      try {
+        const parsed = new URL(src)
+        if (parsed.pathname.startsWith("/media/")) {
+          return parsed.pathname + parsed.search
+        }
+      } catch (err) {
+        return src
+      }
+      return src
+    }
+    if (src.startsWith("/")) {
+      return src
+    }
+    return "/" + src
+  }
+
+  const formatFaultDiagnosed = (faultIdValue) => {
+    if (!faultIdValue) {
       return "-"
     }
-    return items.map((item) => item.name).join(", ")
+    if (fault?.id === faultIdValue) {
+      return fault?.name ?? `Fault ${faultIdValue}`
+    }
+    return `Fault ${faultIdValue}`
+  }
+
+  const formatFeatureNames = (featureIds) => {
+    if (!featureIds || featureIds.length === 0) {
+      return "-"
+    }
+    const ids = Array.isArray(featureIds) ? featureIds : [featureIds]
+    const names = ids
+      .map((id) => featuresById.get(id)?.name ?? `Feature ${id}`)
+      .filter(Boolean)
+    return names.length > 0 ? names.join(", ") : "-"
+  }
+
+  const renderPhotoStrip = (photoIds) => {
+    if (!photoIds || photoIds.length === 0) {
+      return <span className="text-muted">-</span>
+    }
+    const ids = Array.isArray(photoIds) ? photoIds : [photoIds]
+    const items = ids
+      .map((id) => photosById.get(id))
+      .filter(Boolean)
+    if (items.length === 0) {
+      return <span className="text-muted">-</span>
+    }
+    return (
+      <div className="d-flex flex-wrap gap-2">
+        {items.map((photo) => {
+          const imageSrc = normalizedImageUrl(photo.image)
+          return imageSrc ? (
+            <img
+              key={photo.id}
+              src={imageSrc}
+              alt={photo.title ?? "Repair result photo"}
+              style={{ width: "72px", height: "72px", objectFit: "cover" }}
+              className="rounded border"
+            />
+          ) : null
+        })}
+      </div>
+    )
   }
 
   if (!loaded) {
@@ -88,22 +215,54 @@ export function ViewRepairDetails({ config }) {
       <Card className="mt-2">
         <Card.Header className="text-center">
           <h1>{fault?.name ?? "Fault details"}</h1>
+          {fault?.description && <div className="text-muted">{fault.description}</div>}
         </Card.Header>
         <Card.Body>
-          {fault?.description && <div className="text-muted mb-2">{fault.description}</div>}
-          {fault?.features?.length ? (
-            <div className="mb-3">
-              {fault.features.map((featureId) => (
-                <Badge key={featureId} bg="secondary" className="me-1">
-                  {featuresById.get(featureId)?.name ?? `Feature ${featureId}`}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="text-muted mb-3">No linked features.</div>
-          )}
+          <Card className="mb-3">
+            <Card.Header>
+              <h2 className="h5 mb-0">Associated features and photos</h2>
+            </Card.Header>
+            <Card.Body>
+              <div>
+                <div className="fw-semibold mb-2">Features linked to this fault</div>
+                {associatedFeatures.length === 0 ? (
+                  <div className="text-muted">No linked features.</div>
+                ) : (
+                  <Row className="g-3">
+                    {associatedFeatures.map((feature) => {
+                      const featurePhotos = photosByFeatureId.get(feature.id) ?? []
+                      const imageSrc = normalizedImageUrl(featurePhotos[0]?.image)
+                      return (
+                        <Col key={feature.id} xs={12} sm={6} md={4}>
+                          <Card className="h-100">
+                            {imageSrc && (
+                              <Card.Img
+                                variant="top"
+                                src={imageSrc}
+                                alt={feature.name}
+                                style={{ height: "140px", objectFit: "cover" }}
+                              />
+                            )}
+                            <Card.Body>
+                              <Card.Title className="h6">{feature.name}</Card.Title>
+                              {feature.description && (
+                                <Card.Text className="text-muted">{feature.description}</Card.Text>
+                              )}
+                              <div>
+                                <Badge bg="secondary">Linked</Badge>
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                      )
+                    })}
+                  </Row>
+                )}
+              </div>
+            </Card.Body>
+          </Card>
 
-          <h2 className="h4">Repair results</h2>
+          <h2 className="h4">Results from previous repairs</h2>
           <Form.Select
             className="mb-3"
             value={outcomeFilter}
@@ -123,8 +282,9 @@ export function ViewRepairDetails({ config }) {
                 <tr>
                   <th>Date</th>
                   <th>Outcome</th>
-                  <th>Repair actions</th>
-                  <th>Reasons not repaired</th>
+                  <th>Fault diagnosed</th>
+                  <th>Fault features</th>
+                  <th>Photos</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,8 +292,9 @@ export function ViewRepairDetails({ config }) {
                   <tr key={result.id}>
                     <td>{result.date ?? "-"}</td>
                     <td>{result.type ?? "-"}</td>
-                    <td>{formatActions(result.repair_action_details)}</td>
-                    <td>{formatActions(result.reason_not_repaired_details)}</td>
+                    <td>{formatFaultDiagnosed(result.fault_diagnosed)}</td>
+                    <td>{formatFeatureNames(result.fault_features)}</td>
+                    <td>{renderPhotoStrip(result.photo_id)}</td>
                   </tr>
                 ))}
               </tbody>

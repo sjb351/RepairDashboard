@@ -51,6 +51,9 @@ export function CapturePage({ config, product_list }) {
 
   const normalizeRepairResultPayload = (data, resultType) => {
     const payload = { ...data }
+    if (payload.feature && !payload.fault_features) {
+      payload.fault_features = payload.feature
+    }
     delete payload.feature
     if (!payload.type) {
       payload.type = RESULT_TYPE[resultType]
@@ -238,7 +241,7 @@ export function CapturePage({ config, product_list }) {
         photoRelationKey="feature_id"
         current_data={currentData}
         editableKeys={['name', 'description']}
-        tag_to_store = {"feature"}
+        tag_to_store = {"fault_features"}
         photoOption = {true}
         multiSelect={true}
         onSelectionChange={setSelectedFeatureIds}
